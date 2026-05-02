@@ -1,0 +1,92 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# chameleon-ci / templates / service-ci.yml
+#
+# CI-Template für Service-Projekte (Kotlin/Micronaut, Go).
+# Linting läuft via tcwlab/betterlint. Build-Jobs sind Platzhalter.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BETTERLINT_VERSION: "1.0.0"
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-22.04
+    container:
+      image: tcwlab/betterlint:${{ env.BETTERLINT_VERSION }}
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ShellCheck
+        run: |
+          mapfile -t scripts < <(find . -name '*.sh' -not -path './.git/*')
+          [ "${#scripts[@]}" -eq 0 ] && exit 0
+          shellcheck --severity=warning "${scripts[@]}"
+
+      - name: Markdown
+        run: markdownlint-cli2 --config .markdownlint.json "**/*.md" "#node_modules"
+
+      - name: Conventional Commits
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            FROM="${{ github.event.pull_request.base.sha }}"
+          else
+            FROM="${{ github.event.before }}"
+            [[ "$FROM" =~ ^0+$ ]] && FROM="HEAD~1"
+          fi
+          npm install --no-save @commitlint/cli@19 @commitlint/config-conventional@19
+          npx commitlint --config .commitlintrc.json --from "$FROM" --to HEAD
+
+      - name: OpenAPI Lint
+        run: |
+          mapfile -t specs < <(find . -name 'openapi.yaml' -not -path './.git/*')
+          [ "${#specs[@]}" -eq 0 ] && exit 0
+          spectral lint --ruleset .spectral.yaml --fail-severity=error "${specs[@]}"
+
+      - name: Gherkin Syntax
+        run: |
+          mapfile -t features < <(find . -name '*.feature' -not -path './.git/*')
+          [ "${#features[@]}" -eq 0 ] && exit 0
+          python3 - <<'PY'
+          import os, sys, pathlib
+          from gherkin.parser import Parser
+          from gherkin.token_scanner import TokenScanner
+          parser = Parser()
+          errors = 0
+          for f in open('/dev/stdin').read().strip().splitlines():
+              if not f: continue
+              src = pathlib.Path(f).read_text(encoding='utf-8')
+              try:
+                  parser.parse(TokenScanner(src)); print(f'OK   {f}')
+              except Exception as e:
+                  print(f'FAIL {f}: {e}', file=sys.stderr); errors += 1
+          sys.exit(1 if errors else 0)
+          PY
+
+  # ---------------------------------------------------------------------------
+  # TODO: build-Job hier ergänzen (Kotlin: ./gradlew build / Go: go build)
+  # build:
+  #   name: Build
+  #   runs-on: ubuntu-22.04
+  #   needs: [lint]
+  #   steps: ...
