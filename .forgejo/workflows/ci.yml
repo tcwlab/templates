@@ -42,22 +42,5 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: ShellCheck
-        run: |
-          mapfile -t scripts < <(find . -name '*.sh' -not -path './.git/*')
-          [ "${#scripts[@]}" -eq 0 ] && exit 0
-          shellcheck --severity=warning "${scripts[@]}"
-
-      - name: Markdown
-        run: markdownlint-cli2 --config .markdownlint.json "**/*.md" "#node_modules"
-
-      - name: Conventional Commits
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            FROM="${{ github.event.pull_request.base.sha }}"
-          else
-            FROM="${{ github.event.before }}"
-            [[ "$FROM" =~ ^0+$ ]] && FROM="HEAD~1"
-          fi
-          npm install --no-save @commitlint/cli@19 @commitlint/config-conventional@19
-          npx commitlint --config .commitlintrc.json --from "$FROM" --to HEAD
+      - name: Lint (betterlint)
+        run: betterlint --dir .
