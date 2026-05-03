@@ -4,7 +4,7 @@
 # CI-Template für IaC-Projekte (OpenTofu + tflint + Linting).
 # Kopieren nach .forgejo/workflows/ci.yml und VERSIONS anpassen.
 #
-# Images: tcwlab/betterlint, tcwlab/opentofu, tcwlab/tflint (Docker Hub)
+# Images: tcwlab/betterlint, tcwlab/opentofu (Docker Hub)
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: ci
@@ -27,7 +27,6 @@ concurrency:
 env:
   BETTERLINT_VERSION: "2.12.0"
   OPENTOFU_VERSION: "1.10.0"
-  TFLINT_VERSION: "0.54.0"
 
 jobs:
 
@@ -99,7 +98,7 @@ jobs:
     name: tflint
     runs-on: ubuntu-22.04
     container:
-      image: tcwlab/tflint:${{ env.TFLINT_VERSION }}
+      image: tcwlab/betterlint:${{ env.BETTERLINT_VERSION }}
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v4
       - name: tflint --recursive
