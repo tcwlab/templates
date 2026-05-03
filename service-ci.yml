@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  BETTERLINT_VERSION: "1.0.0"
+  BETTERLINT_VERSION: "2.12.0"
 
 jobs:
 
