@@ -1,0 +1,375 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# chameleon-ci / templates / docker-image-ci.yml
+#
+# CI-Template für Docker-Image-Repos (Tool-Wrapper, CI-Helfer-Images).
+# Kopieren nach .forgejo/workflows/ci.yml und die markierten Stellen anpassen.
+#
+# Job-Reihenfolge:
+#   lint (optional)  →  build-test  →  security  →  release / auto-tag + publish
+#
+# Staging-Muster: tcwlab/forgejo-build:<tool>-<sha>
+# Trivy scannt das Staging-Image und schreibt das Ergebnis als Markdown-
+# Tabelle oben in die PR-Beschreibung (idempotent per HTML-Marker).
+#
+# Secrets (Forgejo Repository Secrets):
+#   FORGEJO_TOKEN      → API-Token für Forgejo (Checkout + PR-Update)
+#   DOCKERHUB_USERNAME → Docker Hub Username
+#   DOCKERHUB_TOKEN    → Docker Hub Access Token
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: ci
+
+on:
+  push:
+    # ── ANPASSEN: feature/* und/oder claude/* je nach Branching-Konvention ──
+    branches: [main, "feature/*", "claude/*"]
+    # ── Nur nötig wenn publish via Tag-Event (auto-tag + separate publish) ──
+    # tags: ["v*-*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # ── ANPASSEN ──────────────────────────────────────────────────────────────
+  IMAGE: tcwlab/<toolname>          # z.B. tcwlab/trivy, tcwlab/opentofu
+  DOCKER_CLI_URL: https://download.docker.com/linux/static/stable/x86_64/docker-27.3.1.tgz
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  # Optional: Dockerfile-Lint via tcwlab/betterlint
+  # Weglassen wenn das Repo selbst betterlint ist (Bootstrap-Problem).
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Dockerfile Lint
+    runs-on: ubuntu-22.04
+    container:
+      image: tcwlab/betterlint:latest
+    steps:
+      - name: Checkout
+        env:
+          GITHUB_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+        run: |
+          git config --global init.defaultBranch main
+          git init .
+          git remote add origin \
+            "https://oauth2:${GITHUB_TOKEN}@git.mon.k8b.co/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin "${GITHUB_SHA}"
+          git checkout FETCH_HEAD
+      - name: hadolint
+        run: betterlint --only hadolint
+
+  # ---------------------------------------------------------------------------
+  # Build, Smoke-Test, und Push ins Staging-Repo auf Docker Hub.
+  # Staging-Image: tcwlab/forgejo-build:<tool>-<sha>
+  # Wird vom security-Job gescannt; nie direkt released.
+  # ---------------------------------------------------------------------------
+  build-test:
+    name: Build & Smoke-Test (amd64)
+    runs-on: ubuntu-22.04
+    # Wenn tcwlab/buildx als Container-Image verfügbar ist, bevorzugen:
+    # container:
+    #   image: tcwlab/buildx:0.33.0
+    env:
+      DOCKER_HOST: tcp://docker-in-docker:2375
+    steps:
+      # Checkout: actions/checkout@v4 oder shell-basiert (kein Node.js im Container)
+      - uses: https://data.forgejo.org/actions/checkout@v4
+      # Alternativ (in Containern ohne Node):
+      # - name: Checkout
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+      #   run: |
+      #     git config --global init.defaultBranch main
+      #     git init . && git remote add origin \
+      #       "https://oauth2:${GITHUB_TOKEN}@git.mon.k8b.co/${GITHUB_REPOSITORY}.git"
+      #     git fetch --depth=1 origin "${GITHUB_SHA}" && git checkout FETCH_HEAD
+
+      - name: Install Docker CLI
+        run: |
+          curl -fsSL "${{ env.DOCKER_CLI_URL }}" -o /tmp/docker.tgz
+          tar xzf /tmp/docker.tgz --strip-components=1 -C /usr/local/bin docker/docker
+
+      - name: Build (amd64)
+        run: docker build -t "${{ env.IMAGE }}:test" .
+
+      - name: Smoke-Test
+        # ── ANPASSEN: Tool-spezifischer Versionsbefehl ──────────────────────
+        run: docker run --rm "${{ env.IMAGE }}:test" --version
+
+      - name: Docker Hub Login
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" \
+            | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Push zu Staging
+        run: |
+          TOOL=$(echo "${{ env.IMAGE }}" | cut -d'/' -f2)
+          docker tag "${{ env.IMAGE }}:test" "tcwlab/forgejo-build:${TOOL}-${{ github.sha }}"
+          docker push "tcwlab/forgejo-build:${TOOL}-${{ github.sha }}"
+
+  # ---------------------------------------------------------------------------
+  # Trivy scannt das Staging-Image und schreibt das Ergebnis als
+  # Markdown-Tabelle in die PR-Beschreibung (idempotent, HTML-Marker).
+  # Kein exit-code != 0: blockiert die Pipeline nicht, informiert nur.
+  # ---------------------------------------------------------------------------
+  security:
+    name: Trivy Security Scan
+    runs-on: ubuntu-22.04
+    needs: [build-test]
+    env:
+      DOCKER_HOST: tcp://docker-in-docker:2375
+    steps:
+      - name: Install Docker CLI
+        run: |
+          curl -fsSL "${{ env.DOCKER_CLI_URL }}" -o /tmp/docker.tgz
+          tar xzf /tmp/docker.tgz --strip-components=1 -C /usr/local/bin docker/docker
+
+      - name: Trivy Scan (JSON)
+        run: |
+          TOOL=$(echo "${{ env.IMAGE }}" | cut -d'/' -f2)
+          docker run --rm \
+            -e TRIVY_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}" \
+            -e TRIVY_PASSWORD="${{ secrets.DOCKERHUB_TOKEN }}" \
+            tcwlab/trivy:0.70.0 image \
+            --exit-code 0 --severity HIGH,CRITICAL --ignore-unfixed \
+            --format json \
+            "tcwlab/forgejo-build:${TOOL}-${{ github.sha }}" \
+            > /tmp/trivy-report.json
+
+      - name: PR-Beschreibung mit Trivy-Ergebnis aktualisieren
+        env:
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_BRANCH: ${{ github.head_ref || github.ref_name }}
+          REPO: ${{ github.repository }}
+          # ── ANPASSEN: <toolname> ersetzen ───────────────────────────────
+          IMAGE_REF: "tcwlab/forgejo-build:<toolname>-${{ github.sha }}"
+        run: |
+          python3 << 'EOF'
+          import os, json, re, urllib.request, urllib.error
+          from datetime import datetime, timezone
+
+          token    = os.environ["FORGEJO_TOKEN"]
+          repo     = os.environ["REPO"]
+          event    = os.environ["GITHUB_EVENT_NAME"]
+          base_url = "https://git.mon.k8b.co/api/v1"
+          headers  = {"Authorization": f"token {token}", "Content-Type": "application/json"}
+
+          def api_get(url):
+              req = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(req) as r:
+                  return json.loads(r.read())
+
+          def api_patch(url, body):
+              req = urllib.request.Request(
+                  url, data=json.dumps(body).encode(), headers=headers, method="PATCH"
+              )
+              with urllib.request.urlopen(req) as r:
+                  return r.status
+
+          # PR-Nummer ermitteln
+          pr_number = None
+          if event == "pull_request":
+              pr_number = os.environ["PR_NUMBER"]
+          else:
+              branch = os.environ["HEAD_BRANCH"]
+              try:
+                  pulls = api_get(f"{base_url}/repos/{repo}/pulls?state=open&limit=50")
+                  for pr in pulls:
+                      if pr.get("head", {}).get("ref") == branch:
+                          pr_number = str(pr["number"])
+                          break
+              except urllib.error.URLError as e:
+                  print(f"PR-Suche fehlgeschlagen: {e}")
+
+          if not pr_number:
+              print("Kein offener PR gefunden — PR-Beschreibung wird nicht aktualisiert")
+              exit(0)
+
+          # Trivy-JSON einlesen und Markdown-Tabelle bauen
+          with open("/tmp/trivy-report.json") as f:
+              report = json.load(f)
+
+          severity_icon = {"CRITICAL": "\U0001f534", "HIGH": "\U0001f7e0"}
+          rows = []
+          for result in report.get("Results", []):
+              for vuln in result.get("Vulnerabilities") or []:
+                  sev   = vuln.get("Severity", "")
+                  pkg   = vuln.get("PkgName", "")
+                  inst  = vuln.get("InstalledVersion", "")
+                  fixed = vuln.get("FixedVersion", "") or "—"
+                  cve   = vuln.get("VulnerabilityID", "")
+                  url   = next(
+                      (r for r in vuln.get("References", []) if "nvd.nist.gov" in r),
+                      vuln.get("PrimaryURL", "")
+                  )
+                  cve_link = f"[{cve}]({url})" if url else cve
+                  rows.append((sev, severity_icon.get(sev, "⚪"), pkg, inst, fixed, cve_link))
+
+          order = {"CRITICAL": 0, "HIGH": 1}
+          rows.sort(key=lambda r: (order.get(r[0], 9), r[2]))
+          counts = {s: sum(1 for r in rows if r[0] == s) for s in ["CRITICAL", "HIGH"]}
+          total  = sum(counts.values())
+
+          if total == 0:
+              summary = "**✅ Keine HIGH/CRITICAL Schwachstellen gefunden**"
+              table   = ""
+          else:
+              parts   = [f"{counts[s]} {s}" for s in ["CRITICAL", "HIGH"] if counts[s]]
+              summary = f"**⚠️ Security Scan — {', '.join(parts)}** (nur behebbare Schwachstellen)"
+              table   = (
+                  "\n| Severity | Package | Installed | Fixed | CVE |\n"
+                  "|---|---|---|---|---|\n"
+              )
+              for _, icon, pkg, inst, fixed, cve_link in rows:
+                  table += f"| {icon} | `{pkg}` | {inst} | {fixed} | {cve_link} |\n"
+
+          scan_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+          footer    = f"\n_Scan: `{os.environ['IMAGE_REF']}` — {scan_date}_"
+
+          # Idempotenter Block: ersetzen oder oben voranstellen
+          start = "<!-- trivy-scan-chameleon-ci-start -->"
+          end   = "<!-- trivy-scan-chameleon-ci-end -->"
+          block = f"{start}\n{summary}{table}{footer}\n{end}"
+
+          pr_data      = api_get(f"{base_url}/repos/{repo}/pulls/{pr_number}")
+          current_body = pr_data.get("body", "") or ""
+
+          if start in current_body:
+              new_body = re.sub(
+                  re.escape(start) + r".*?" + re.escape(end),
+                  block, current_body, flags=re.DOTALL
+              )
+          else:
+              new_body = block + ("\n\n" + current_body if current_body else "")
+
+          status = api_patch(f"{base_url}/repos/{repo}/pulls/{pr_number}", {"body": new_body})
+          print(f"PR #{pr_number}: Beschreibung aktualisiert ({total} Findings, HTTP {status})")
+          EOF
+
+  # ---------------------------------------------------------------------------
+  # Release: Muster A — direkt auf main, kombinierter Build+Push+Tag-Job.
+  # Geeignet für Repos ohne separate tag-getriggerte Publish-Pipeline.
+  # (Alternative: Muster B weiter unten — auto-tag + publish getrennt)
+  # ---------------------------------------------------------------------------
+  release:
+    name: Release — Multi-Arch Push + Git-Tag
+    runs-on: ubuntu-22.04
+    # ── ANPASSEN: lint ergänzen falls lint-Job vorhanden ──────────────────
+    needs: [build-test, security]
+    if: github.ref == 'refs/heads/main'
+    env:
+      DOCKER_HOST: tcp://docker-in-docker:2375
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: |
+          # ── ANPASSEN: Versionsextraktion aus Dockerfile-ARG ─────────────
+          VER=$(grep '^ARG <TOOL>_VERSION=' Dockerfile | head -1 | cut -d= -f2)
+          SHA8="${GITHUB_SHA:0:8}"
+          echo "tool_version=${VER}" >> "$GITHUB_OUTPUT"
+          echo "sha8=${SHA8}" >> "$GITHUB_OUTPUT"
+
+      - name: Install Docker CLI + buildx
+        run: |
+          curl -fsSL "${{ env.DOCKER_CLI_URL }}" -o /tmp/docker.tgz
+          tar xzf /tmp/docker.tgz --strip-components=1 -C /usr/local/bin docker/docker
+          mkdir -p ~/.docker/cli-plugins
+          curl -fsSL "https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-amd64" \
+            -o ~/.docker/cli-plugins/docker-buildx
+          chmod +x ~/.docker/cli-plugins/docker-buildx
+
+      - name: Set up QEMU + Buildx
+        run: |
+          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+          docker buildx create --name multiarch --driver docker-container --use
+          docker buildx inspect --bootstrap
+
+      - name: Docker Hub Login
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" \
+            | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build & Push (multi-arch)
+        run: |
+          VER="${{ steps.version.outputs.tool_version }}"
+          SHA8="${{ steps.version.outputs.sha8 }}"
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --sbom=true --provenance=mode=max \
+            # ── ANPASSEN: --build-arg falls ARG im Dockerfile genutzt ─────
+            # --build-arg <TOOL>_VERSION="${VER}" \
+            -t "${{ env.IMAGE }}:${VER}-${SHA8}" \
+            -t "${{ env.IMAGE }}:${VER}" \
+            -t "${{ env.IMAGE }}:latest" \
+            --push .
+
+      - name: Create Git-Tag
+        env:
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+        run: |
+          VER="${{ steps.version.outputs.tool_version }}"
+          SHA8="${{ steps.version.outputs.sha8 }}"
+          TAG="v${VER}-${SHA8}"
+          PAYLOAD=$(printf '{"tag_name":"%s","target":"%s"}' "${TAG}" "${GITHUB_SHA}")
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            -H "Authorization: token ${FORGEJO_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "${PAYLOAD}" \
+            "https://git.mon.k8b.co/api/v1/repos/${GITHUB_REPOSITORY}/tags")
+          echo "Git-Tag ${TAG} -> HTTP ${HTTP}"
+
+  # ---------------------------------------------------------------------------
+  # Muster B (Alternative zu release): auto-tag auf main, publish auf Tag-Event.
+  # Einkommentieren und release-Job oben entfernen falls gewünscht.
+  # Trigger muss dann `tags: ["v*-*"]` enthalten (siehe on.push oben).
+  # ---------------------------------------------------------------------------
+  # auto-tag:
+  #   name: Auto-Tag Release
+  #   runs-on: ubuntu-22.04
+  #   needs: [lint, security]   # lint ergänzen falls vorhanden
+  #   if: github.ref == 'refs/heads/main'
+  #   steps:
+  #     - name: Checkout
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+  #       run: |
+  #         git config --global init.defaultBranch main && git init .
+  #         git remote add origin \
+  #           "https://oauth2:${GITHUB_TOKEN}@git.mon.k8b.co/${GITHUB_REPOSITORY}.git"
+  #         git fetch --depth=1 origin "${GITHUB_SHA}" && git checkout FETCH_HEAD
+  #     - name: Create release tag
+  #       env:
+  #         FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+  #       run: |
+  #         TOOL_VER=$(grep '^ARG <TOOL>_VERSION=' Dockerfile | head -1 | cut -d= -f2)
+  #         SHA8="${GITHUB_SHA:0:8}"
+  #         TAG="v${TOOL_VER}-${SHA8}"
+  #         PAYLOAD=$(printf '{"tag_name":"%s","target":"%s"}' "${TAG}" "${GITHUB_SHA}")
+  #         HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+  #           -H "Authorization: token ${FORGEJO_TOKEN}" \
+  #           -H "Content-Type: application/json" \
+  #           -d "${PAYLOAD}" \
+  #           "https://git.mon.k8b.co/api/v1/repos/${GITHUB_REPOSITORY}/tags")
+  #         echo "Created tag ${TAG} -> HTTP ${HTTP}"
+  #
+  # publish:
+  #   name: Publish to Docker Hub (multi-arch)
+  #   runs-on: ubuntu-22.04
+  #   needs: [lint, security]
+  #   if: startsWith(github.ref, 'refs/tags/v')
+  #   container:
+  #     image: tcwlab/buildx:0.33.0
+  #   env:
+  #     DOCKER_HOST: tcp://docker-in-docker:2375
+  #   steps:
+  #     - name: Checkout + Extract version + QEMU + Buildx + Login + Push ...
+  #       # (siehe trivy/opentofu/tflint als vollständige Referenz)
