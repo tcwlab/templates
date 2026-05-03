@@ -1,0 +1,63 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# chameleon-ci / templates / .forgejo/workflows/ci.yml
+#
+# Self-Lint-Pipeline für dieses Repo.
+# Lintet die Workflow-Templates (*.yml), Doku (*.md) und Wrapper-Skripte (*.sh)
+# in diesem Repo selbst. Dogfooding: das Repo, das die CI-Vorlagen liefert,
+# lintet sich mit demselben Pattern, das Konsumenten beim Bootstrap kopieren.
+#
+# Image: tcwlab/betterlint (Docker Hub) — Single-Job-Variante des
+# service-ci.yml-Lint-Skeletts ohne Service-spezifische Steps (OpenAPI, Gherkin).
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BETTERLINT_VERSION: "2.12.0"
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-22.04
+    container:
+      image: tcwlab/betterlint:${{ env.BETTERLINT_VERSION }}
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ShellCheck
+        run: |
+          mapfile -t scripts < <(find . -name '*.sh' -not -path './.git/*')
+          [ "${#scripts[@]}" -eq 0 ] && exit 0
+          shellcheck --severity=warning "${scripts[@]}"
+
+      - name: Markdown
+        run: markdownlint-cli2 --config .markdownlint.json "**/*.md" "#node_modules"
+
+      - name: Conventional Commits
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            FROM="${{ github.event.pull_request.base.sha }}"
+          else
+            FROM="${{ github.event.before }}"
+            [[ "$FROM" =~ ^0+$ ]] && FROM="HEAD~1"
+          fi
+          npm install --no-save @commitlint/cli@19 @commitlint/config-conventional@19
+          npx commitlint --config .commitlintrc.json --from "$FROM" --to HEAD
