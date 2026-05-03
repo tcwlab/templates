@@ -11,7 +11,7 @@ Drop-in-Workflow-Files. Konsumenten-Repos kopieren ein passendes Template nach `
 ## Verfügbare Templates
 
 | Template | Ziel-Repo-Typ | Verwendete Images |
-|----------|---------------|-------------------|
+| -------- | ------------- | ----------------- |
 | [`iac-ci.yml`](iac-ci.yml) | OpenTofu / IaC | `tcwlab/betterlint`, `tcwlab/opentofu` |
 | [`service-ci.yml`](service-ci.yml) | Kotlin/Micronaut/Go-Services | `tcwlab/betterlint` |
 | [`docker-image-ci.yml`](docker-image-ci.yml) | Docker-Image-Wrapper (chameleon-ci-intern) | `tcwlab/betterlint`, `tcwlab/buildx`, `tcwlab/trivy`, `tcwlab/semantic-release` |

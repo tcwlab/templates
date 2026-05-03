@@ -577,7 +577,8 @@ cmd_branch() {
     if ! check_clean_worktree_for_switch "$name"; then
         if [ "$auto_stash" -eq 1 ]; then
             echo "ℹ️  '$DISPLAY': --auto-stash gesetzt — stash + switch + pop." >&2
-            local stash_msg="auto-stash-before-branch-$(date +%s)"
+            local stash_msg
+            stash_msg="auto-stash-before-branch-$(date +%s)"
             if ! git -C "$REPO_ROOT" stash push --include-untracked -m "$stash_msg" >/dev/null; then
                 echo "❌ '$DISPLAY': Auto-Stash fehlgeschlagen — Abbruch." >&2
                 return 1

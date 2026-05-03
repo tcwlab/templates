@@ -1,6 +1,7 @@
 # templates — Repo-Kontext
 
 > **Onboarding-Handshake:** Lies in dieser Reihenfolge:
+>
 > 1. [`Projects/CLAUDE.md`](https://git.mon.k8b.co/) (globale Standards)
 > 2. [`chameleon-ci/CLAUDE.md`](https://git.mon.k8b.co/chameleon-ci/) (Toolchain-Kontext, Konsumenten-API)
 > 3. Diese Datei (templates-spezifisches)
@@ -26,7 +27,7 @@ Aktuelle Konsumenten in der TCW-Welt sind die Service-Verticals (Atrium, Spectru
 Drei Templates, je nach Repo-Typ:
 
 | Template | Ziel-Repo-Typ | Image-Footprint |
-|----------|---------------|-----------------|
+| -------- | ------------- | --------------- |
 | [`iac-ci.yml`](https://git.mon.k8b.co/chameleon-ci/templates/src/branch/main/iac-ci.yml) | OpenTofu / IaC | `tcwlab/betterlint`, `tcwlab/opentofu` |
 | [`service-ci.yml`](https://git.mon.k8b.co/chameleon-ci/templates/src/branch/main/service-ci.yml) | Kotlin/Micronaut/Go-Services | `tcwlab/betterlint` (Build-Jobs als Platzhalter) |
 | [`docker-image-ci.yml`](https://git.mon.k8b.co/chameleon-ci/templates/src/branch/main/docker-image-ci.yml) | Docker-Image-Wrapper (chameleon-ci-intern) | `tcwlab/betterlint`, `tcwlab/buildx`, `tcwlab/trivy`, `tcwlab/semantic-release` |
