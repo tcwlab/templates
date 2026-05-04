@@ -1,8 +1,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # tcwlab / templates / service-ci.yml
 #
-# CI-Template für Service-Projekte (Kotlin/Micronaut, Go).
-# Linting läuft via tcwlab/betterlint. Build-Jobs sind Platzhalter.
+# CI template for service projects (Kotlin/Micronaut, Go).
+# Linting runs via tcwlab/betterlint. Build jobs are placeholders.
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: ci
@@ -28,7 +28,7 @@ jobs:
 
   # ---------------------------------------------------------------------------
   lint:
-    name: Lint
+    name: Lint (betterlint, OpenAPI, Gherkin)
     runs-on: ubuntu-22.04
     container:
       image: tcwlab/betterlint:${{ env.BETTERLINT_VERSION }}
@@ -67,7 +67,7 @@ jobs:
           PY
 
   # ---------------------------------------------------------------------------
-  # TODO: build-Job hier ergänzen (Kotlin: ./gradlew build / Go: go build)
+  # TODO: Add build job here (Kotlin: ./gradlew build / Go: go build)
   # build:
   #   name: Build
   #   runs-on: ubuntu-22.04

@@ -1,8 +1,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # tcwlab / templates / iac-ci.yml
 #
-# CI-Template für IaC-Projekte (OpenTofu + tflint + Linting).
-# Kopieren nach .forgejo/workflows/ci.yml und VERSIONS anpassen.
+# CI template for IaC projects (OpenTofu + tflint + linting).
+# Copy to .forgejo/workflows/ci.yml and adjust the versions.
 #
 # Images: tcwlab/betterlint, tcwlab/opentofu (Docker Hub)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# ── Versionen hier zentral pflegen ───────────────────────────────────────────
+# ── Maintain versions centrally here ──────────────────────────────────────────
 env:
   BETTERLINT_VERSION: "2.12.0"
   OPENTOFU_VERSION: "1.10.0"
@@ -32,7 +32,7 @@ jobs:
 
   # ---------------------------------------------------------------------------
   lint:
-    name: Lint
+    name: Lint (betterlint)
     runs-on: ubuntu-22.04
     container:
       image: tcwlab/betterlint:${{ env.BETTERLINT_VERSION }}
@@ -46,7 +46,7 @@ jobs:
 
   # ---------------------------------------------------------------------------
   tofu-fmt:
-    name: Tofu fmt
+    name: OpenTofu fmt
     runs-on: ubuntu-22.04
     container:
       image: tcwlab/opentofu:${{ env.OPENTOFU_VERSION }}
@@ -57,7 +57,7 @@ jobs:
 
   # ---------------------------------------------------------------------------
   tofu-validate:
-    name: Tofu validate
+    name: OpenTofu validate
     runs-on: ubuntu-22.04
     container:
       image: tcwlab/opentofu:${{ env.OPENTOFU_VERSION }}
@@ -69,7 +69,7 @@ jobs:
           mapfile -t dirs < <(find . -name '*.tf' \
             -not -path '*/.git/*' -not -path '*/.terraform/*' \
             -exec dirname {} \; | sort -u)
-          [ "${#dirs[@]}" -eq 0 ] && { echo "Keine .tf-Dateien — übersprungen."; exit 0; }
+          [ "${#dirs[@]}" -eq 0 ] && { echo "No .tf files found — skipped."; exit 0; }
           for d in "${dirs[@]}"; do
             echo "::group::tofu validate $d"
             (cd "$d" && tofu init -backend=false -input=false -no-color && tofu validate -no-color)
