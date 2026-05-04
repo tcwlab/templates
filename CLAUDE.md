@@ -18,7 +18,7 @@ Die bewusste Entscheidung gegen `uses:`-Referenzen für ganze Workflows kommt au
 
 Alle TCW-Repos beim ersten Bootstrap. Pattern: `cp <tcwlab>/templates/<typ>-ci.yml <repo>/.forgejo/workflows/ci.yml`, dann ANPASSEN-Stellen ändern, dann commit.
 
-Aktuelle Konsumenten in der TCW-Welt sind die Service-Verticals (Atrium, Spectrum, Tally, IdentServ, IzyPhlirt, Testiversum, Sutagil), die K8Box-IaC-Repos und die `tcwlab`-Image-Repos selbst.
+Aktuelle Konsumenten in der TCW-Welt sind die Service-Verticals der TCW-Plattform (Atrium, Spectrum, Tally und weitere), die K8Box-IaC-Repos und die `tcwlab`-Image-Repos selbst.
 
 ---
 
