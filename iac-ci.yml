@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# chameleon-ci / templates / iac-ci.yml
+# tcwlab / templates / iac-ci.yml
 #
 # CI-Template für IaC-Projekte (OpenTofu + tflint + Linting).
 # Kopieren nach .forgejo/workflows/ci.yml und VERSIONS anpassen.

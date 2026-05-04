@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# chameleon-ci / templates / service-ci.yml
+# tcwlab / templates / service-ci.yml
 #
 # CI-Template für Service-Projekte (Kotlin/Micronaut, Go).
 # Linting läuft via tcwlab/betterlint. Build-Jobs sind Platzhalter.

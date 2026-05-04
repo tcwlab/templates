@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# chameleon-ci / templates / docker-image-ci.yml
+# tcwlab / templates / docker-image-ci.yml
 #
 # CI-Template für Docker-Image-Repos (Tool-Wrapper, CI-Helfer-Images).
 # Kopieren nach .forgejo/workflows/ci.yml und die markierten Stellen anpassen.
@@ -234,8 +234,8 @@ jobs:
           footer    = f"\n_Scan: `{os.environ['IMAGE_REF']}` — {scan_date}_"
 
           # Idempotenter Block: ersetzen oder oben voranstellen
-          start = "<!-- trivy-scan-chameleon-ci-start -->"
-          end   = "<!-- trivy-scan-chameleon-ci-end -->"
+          start = "<!-- trivy-scan-tcwlab-start -->"
+          end   = "<!-- trivy-scan-tcwlab-end -->"
           block = f"{start}\n{summary}{table}{footer}\n{end}"
 
           pr_data      = api_get(f"{base_url}/repos/{repo}/pulls/{pr_number}")
