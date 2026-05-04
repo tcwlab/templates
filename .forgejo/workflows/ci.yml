@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# chameleon-ci / templates / .forgejo/workflows/ci.yml
+# tcwlab / templates / .forgejo/workflows/ci.yml
 #
 # Self-Lint-Pipeline für dieses Repo.
 # Lintet die Workflow-Templates (*.yml), Doku (*.md) und Wrapper-Skripte (*.sh)
