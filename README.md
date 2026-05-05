@@ -42,17 +42,17 @@ All three follow a consistent job pattern: **Lint → Build/Test → Security �
 Each template has clear `# ── ADJUST ──` markers for values you must change:
 
 **iac-ci.yml:**
-- `OPENTOFU_VERSION` — from [`tcwlab/versions.yaml`](https://git.mon.k8b.co/tcwlab/)
-- `BETTERLINT_VERSION` — from [`tcwlab/versions.yaml`](https://git.mon.k8b.co/tcwlab/)
+- `OPENTOFU_VERSION` — from `tcwlab/versions.yaml`
+- `BETTERLINT_VERSION` — from `tcwlab/versions.yaml`
 - `permissions:`, `concurrency:`, `branches:` — to match your project's branching strategy
 
 **service-ci.yml:**
-- `BETTERLINT_VERSION` — from [`tcwlab/versions.yaml`](https://git.mon.k8b.co/tcwlab/)
+- `BETTERLINT_VERSION` — from `tcwlab/versions.yaml`
 - Build/test steps — uncomment and adapt the `# TODO: build-Job` section for your language (Gradle for Kotlin, `go build` for Go, etc.)
 
 **docker-image-ci.yml:**
 - `IMAGE: tcwlab/<toolname>` — replace `<toolname>` with your image name
-- `BETTERLINT_VERSION`, `TRIVY_VERSION` — from [`tcwlab/versions.yaml`](https://git.mon.k8b.co/tcwlab/)
+- `BETTERLINT_VERSION`, `TRIVY_VERSION` — from `tcwlab/versions.yaml`
 - Smoke-test command in the build step (currently `docker run ... --version`)
 - Version extraction in the release step (currently `ARG <TOOL>_VERSION=...`)
 - Repository secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `FORGEJO_TOKEN`
@@ -63,7 +63,7 @@ Each template has clear `# ── ADJUST ──` markers for values you must cha
 
 Always pin specific versions, never use `latest`:
 
-- **Images**: `tcwlab/betterlint:2.12.0` — get exact versions from [`tcwlab/versions.yaml`](https://git.mon.k8b.co/tcwlab/)
+- **Images**: `tcwlab/betterlint:2.12.0` — version numbers shown here are illustrative; for the current set of tags, see [GitHub releases](https://github.com/tcwlab/templates/releases) for the template tag and the per-image Docker Hub tag pages (e.g. [`tcwlab/betterlint`](https://hub.docker.com/r/tcwlab/betterlint/tags))
 - **Composite Actions**: `@v1` or `@v1.2.0` — major+minor is fine, don't use `@main`
 
 Pinning ensures your pipeline doesn't break when tcwlab ships a new version. It's your explicit choice when to upgrade.
@@ -82,10 +82,8 @@ Templates are _copied_, not referenced via `uses:`. This means your repo owns th
 
 ## Source
 
-- **Forgejo**: `git.mon.k8b.co/tcwlab/templates`
-- **GitHub mirror**: `github.com/tcwlab/templates` (read-only, synced)
-
-Report issues or suggest improvements on the GitHub mirror.
+- **Source**: [github.com/tcwlab/templates](https://github.com/tcwlab/templates)
+- **Issues**: [github.com/tcwlab/templates/issues](https://github.com/tcwlab/templates/issues)
 
 ---
 
