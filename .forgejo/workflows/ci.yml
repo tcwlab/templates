@@ -1,13 +1,13 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # tcwlab / templates / .forgejo/workflows/ci.yml
 #
-# Self-Lint-Pipeline für dieses Repo.
-# Lintet die Workflow-Templates (*.yml), Doku (*.md) und Wrapper-Skripte (*.sh)
-# in diesem Repo selbst. Dogfooding: das Repo, das die CI-Vorlagen liefert,
-# lintet sich mit demselben Pattern, das Konsumenten beim Bootstrap kopieren.
+# Self-linting pipeline for this repo.
+# Lints the workflow templates (*.yml), docs (*.md), and wrapper scripts (*.sh)
+# in this repo itself. Dogfooding: the repo that provides CI templates
+# lints itself with the same pattern consumers copy on bootstrap.
 #
-# Image: tcwlab/betterlint (Docker Hub) — Single-Job-Variante des
-# service-ci.yml-Lint-Skeletts ohne Service-spezifische Steps (OpenAPI, Gherkin).
+# Image: tcwlab/betterlint (Docker Hub) — single-job variant of
+# service-ci.yml linting skeleton without service-specific steps (OpenAPI, Gherkin).
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: ci
@@ -33,7 +33,7 @@ jobs:
 
   # ---------------------------------------------------------------------------
   lint:
-    name: Lint
+    name: Lint (betterlint)
     runs-on: ubuntu-22.04
     container:
       image: tcwlab/betterlint:${{ env.BETTERLINT_VERSION }}

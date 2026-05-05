@@ -1,66 +1,95 @@
 # tcwlab/templates
 
-Forgejo-Workflow-Templates als Konsumenten-API der [tcwlab](https://git.mon.k8b.co/tcwlab) Toolchain.
+Forgejo workflow templates for CI pipelines. Drop-in starting point for repos across The Chameleon Way.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-## Was ist das?
+---
 
-Drop-in-Workflow-Files. Konsumenten-Repos kopieren ein passendes Template nach `.forgejo/workflows/ci.yml` (statt es per `uses:` zu referenzieren) und passen die `# ── ANPASSEN ──`-Stellen am Anfang der Datei an. Drei Templates für die drei häufigen Repo-Typen in der TCW-Welt.
+## Quick start
 
-## Verfügbare Templates
-
-| Template | Ziel-Repo-Typ | Verwendete Images |
-| -------- | ------------- | ----------------- |
-| [`iac-ci.yml`](iac-ci.yml) | OpenTofu / IaC | `tcwlab/betterlint`, `tcwlab/opentofu` |
-| [`service-ci.yml`](service-ci.yml) | Kotlin/Micronaut/Go-Services | `tcwlab/betterlint` |
-| [`docker-image-ci.yml`](docker-image-ci.yml) | Docker-Image-Wrapper (tcwlab-intern) | `tcwlab/betterlint`, `tcwlab/buildx`, `tcwlab/trivy`, `tcwlab/semantic-release` |
-
-Alle drei folgen dem gemeinsamen Job-Skelett: **Lint → Build/Test → Security → Release/Publish**. Konsumenten löschen Jobs, die für ihren Pflegestand nicht relevant sind.
-
-## Verwendung
-
-### Bootstrap eines neuen IaC-Repos
+Copy the template that matches your repo type to `.forgejo/workflows/ci.yml`, then replace the values marked with `# ── ADJUST ──`.
 
 ```bash
-mkdir -p myrepo/.forgejo/workflows
+# For IaC/OpenTofu repos
 cp iac-ci.yml myrepo/.forgejo/workflows/ci.yml
-```
 
-Dann die `# ── ANPASSEN ──`-Stellen anpassen:
-
-- `env.OPENTOFU_VERSION` und `env.BETTERLINT_VERSION` an den Stand aus [`tcwlab/versions.yaml`](https://git.mon.k8b.co/tcwlab/) angleichen.
-- `permissions:`, `concurrency:` und `branches:` projekt-spezifisch.
-
-### Bootstrap eines neuen Service-Repos
-
-```bash
+# For Kotlin/Micronaut/Go services
 cp service-ci.yml myrepo/.forgejo/workflows/ci.yml
-```
 
-Plus typischerweise ein zweites File `release.yml` für den Release-Pfad (semantic-release + Build/Push) — siehe `service-ci.yml`-Header.
-
-### Bootstrap eines neuen tcwlab-Image-Repos
-
-```bash
+# For Docker image wrapper repos
 cp docker-image-ci.yml myrepo/.forgejo/workflows/ci.yml
 ```
 
-Das Template enthält bereits den Auto-Tag + Publish-Pattern, den wir für `tcwlab/<image>:<version>`-Veröffentlichungen verwenden, plus den Trivy-Scan-mit-PR-Markdown-Pattern.
+Then edit `ci.yml` and adjust the placeholders at the top. No further configuration needed — the templates are designed to work out of the box.
 
-## Versionsstrategie
+---
 
-Templates werden über **Git-Tags im `templates`-Repo** versioniert. Konsumenten kopieren physisch — sie referenzieren das Template nicht per `uses:`. Eine Bump im Template wirkt erst, wenn ein Konsument neu kopiert. Das ist bewusst — sonst würden Toolchain-Bumps die Konsumenten-Pipelines unangekündigt brechen.
+## Available templates
 
-Bei Major-Bumps in einem Template: Changelog-Eintrag im Forgejo-Release, der erklärt, was Konsumenten beim Re-Apply anpassen müssen.
+| Template | Target repo type | What it does |
+| -------- | ------------- | --------------- |
+| [`iac-ci.yml`](iac-ci.yml) | OpenTofu / IaC | Lint (betterlint, tflint), format validation, syntax checks. No deployment. |
+| [`service-ci.yml`](service-ci.yml) | Kotlin/Micronaut/Go services | Lint (betterlint, OpenAPI, Gherkin), placeholder for build jobs. Image push/release job commented out — uncomment when ready. |
+| [`docker-image-ci.yml`](docker-image-ci.yml) | Docker image wrapper repos (tcwlab internal use) | Lint, build, Trivy security scan with PR comment, multi-arch release to Docker Hub, auto-tag. Most elaborate template. |
 
-## Was hier NICHT reingehört
+All three follow a consistent job pattern: **Lint → Build/Test → Security → Release**. You can comment out or delete jobs that don't apply to your repo.
 
-- **`workflow_call`-Patterns** — Forgejo unterstützt das nicht reibungslos.
-- **Repo-spezifische Logik** — Templates sind generisch.
-- **Inline-Komplex-Logik**, die in eine Composite Action gehört — die wandert nach [`tcwlab/actions`](https://git.mon.k8b.co/tcwlab/actions).
-- **Konsumenten-spezifische Image-Names** — nur generische `tcwlab/<toolname>`-Platzhalter.
+---
 
-## Lizenz
+## Customization points
+
+Each template has clear `# ── ADJUST ──` markers for values you must change:
+
+**iac-ci.yml:**
+
+- `OPENTOFU_VERSION` — from `tcwlab/versions.yaml`
+- `BETTERLINT_VERSION` — from `tcwlab/versions.yaml`
+- `permissions:`, `concurrency:`, `branches:` — to match your project's branching strategy
+
+**service-ci.yml:**
+
+- `BETTERLINT_VERSION` — from `tcwlab/versions.yaml`
+- Build/test steps — uncomment and adapt the `# TODO: build-Job` section for your language (Gradle for Kotlin, `go build` for Go, etc.)
+
+**docker-image-ci.yml:**
+
+- `IMAGE: tcwlab/<toolname>` — replace `<toolname>` with your image name
+- `BETTERLINT_VERSION`, `TRIVY_VERSION` — from `tcwlab/versions.yaml`
+- Smoke-test command in the build step (currently `docker run ... --version`)
+- Version extraction in the release step (currently `ARG <TOOL>_VERSION=...`)
+- Repository secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `FORGEJO_TOKEN`
+
+---
+
+## Version pinning
+
+Always pin specific versions, never use `latest`:
+
+- **Images**: `tcwlab/betterlint:2.12.0` — version numbers shown here are illustrative; for the current set of tags, see [GitHub releases](https://github.com/tcwlab/templates/releases) for the template tag and the per-image Docker Hub tag pages (e.g. [`tcwlab/betterlint`](https://hub.docker.com/r/tcwlab/betterlint/tags))
+- **Composite Actions**: `@v1` or `@v1.2.0` — major+minor is fine, don't use `@main`
+
+Pinning ensures your pipeline doesn't break when tcwlab ships a new version. It's your explicit choice when to upgrade.
+
+---
+
+## How this repo fits into tcwlab
+
+- **Templates** (this repo) → drop-in YAML files for consumer repos
+- **Actions** (tcwlab/actions) → reusable Composite Actions for fine-grained logic
+- **Images** (tcwlab/{betterlint,opentofu,buildx,trivy,semantic-release}) → Docker Hub
+
+Templates are _copied_, not referenced via `uses:`. This means your repo owns the full CI workflow and can edit it freely.
+
+---
+
+## Source
+
+- **Source**: [github.com/tcwlab/templates](https://github.com/tcwlab/templates)
+- **Issues**: [github.com/tcwlab/templates/issues](https://github.com/tcwlab/templates/issues)
+
+---
+
+## License
 
 Apache-2.0 — The Chameleon Way.

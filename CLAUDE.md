@@ -1,116 +1,116 @@
-# templates — Repo-Kontext
+# templates — repo context
 
-> **Onboarding-Handshake:** Lies in dieser Reihenfolge:
+> **Onboarding handshake:** Read in this order:
 >
-> 1. [`Projects/CLAUDE.md`](https://git.mon.k8b.co/) (globale Standards)
-> 2. [`tcwlab/CLAUDE.md`](https://git.mon.k8b.co/tcwlab/) (Toolchain-Kontext, Konsumenten-API)
-> 3. Diese Datei (templates-spezifisches)
+> 1. `Projects/CLAUDE.md` (global standards, workspace-local)
+> 2. `tcwlab/CLAUDE.md` (toolchain context, consumer API, workspace-local)
+> 3. This file (templates-specific)
 
 ---
 
-## Was ist `templates`?
+## What is `templates`?
 
-`templates` ist das Repo, in dem tcwlab-eigene **Forgejo-Workflow-Templates** als drop-in-fähige YAML-Files leben. Konsumenten-Repos kopieren ein passendes Template nach `.forgejo/workflows/ci.yml` (statt es per `uses:` zu referenzieren) und passen die `# ── ANPASSEN ──`-Stellen am Anfang der Datei an. Das Repo bildet zusammen mit [`actions`](https://git.mon.k8b.co/tcwlab/actions) die **Konsumenten-API** der Toolchain.
+`templates` is the repo where tcwlab publishes **Forgejo workflow templates** as drop-in-ready YAML files. Consumer repos copy the appropriate template to `.forgejo/workflows/ci.yml` (instead of referencing it via `uses:`) and adjust the `# ── ADJUST ──` placeholders at the top. Together with [`actions`](https://github.com/tcwlab/actions), this repo forms the **consumer API** of the tcwlab toolchain.
 
-Die bewusste Entscheidung gegen `uses:`-Referenzen für ganze Workflows kommt aus zwei Gründen: (1) Forgejo unterstützt aktuell nicht reibungslos Re-Use von ganzen Workflow-Files (im Gegensatz zu GitHub `workflow_call`); (2) wir wollen, dass Konsumenten den ganzen CI-Pfad ihres Repos sehen — nicht hinter einer `uses:`-Tür verstecken. Composite Actions in `actions/` decken den feinkörnigen Wiederverwendungs-Fall ab.
+We deliberately avoid `uses:` references for entire workflows for two reasons: (1) Forgejo does not yet support smooth reuse of whole workflow files (unlike GitHub's `workflow_call`); (2) we want consumers to see their full CI pipeline — not hidden behind a `uses:` door. Fine-grained reusability is handled by Composite Actions in `actions/`.
 
-### Konsumenten
+### Consumers
 
-Alle TCW-Repos beim ersten Bootstrap. Pattern: `cp <tcwlab>/templates/<typ>-ci.yml <repo>/.forgejo/workflows/ci.yml`, dann ANPASSEN-Stellen ändern, dann commit.
+All TCW repos use templates at bootstrap. Pattern: `cp <tcwlab>/templates/<type>-ci.yml <repo>/.forgejo/workflows/ci.yml`, then adjust the ADJUST markers, then commit.
 
-Aktuelle Konsumenten in der TCW-Welt sind die Service-Verticals der TCW-Plattform (Atrium, Spectrum, Tally und weitere), die K8Box-IaC-Repos und die `tcwlab`-Image-Repos selbst.
+Current consumers in the TCW ecosystem are the service verticals (Atrium, Spectrum, Tally and others), the K8Box IaC repos, and the tcwlab image repos themselves.
 
 ---
 
-## Was ist drin?
+## What's included?
 
-Drei Templates, je nach Repo-Typ:
+Three templates, one for each repo type:
 
-| Template | Ziel-Repo-Typ | Image-Footprint |
+| Template | Target repo type | Image footprint |
 | -------- | ------------- | --------------- |
-| [`iac-ci.yml`](https://git.mon.k8b.co/tcwlab/templates/src/branch/main/iac-ci.yml) | OpenTofu / IaC | `tcwlab/betterlint`, `tcwlab/opentofu` |
-| [`service-ci.yml`](https://git.mon.k8b.co/tcwlab/templates/src/branch/main/service-ci.yml) | Kotlin/Micronaut/Go-Services | `tcwlab/betterlint` (Build-Jobs als Platzhalter) |
-| [`docker-image-ci.yml`](https://git.mon.k8b.co/tcwlab/templates/src/branch/main/docker-image-ci.yml) | Docker-Image-Wrapper (tcwlab-intern) | `tcwlab/betterlint`, `tcwlab/buildx`, `tcwlab/trivy`, `tcwlab/semantic-release` |
+| [`iac-ci.yml`](https://github.com/tcwlab/templates/blob/main/iac-ci.yml) | OpenTofu / IaC | `tcwlab/betterlint`, `tcwlab/opentofu` |
+| [`service-ci.yml`](https://github.com/tcwlab/templates/blob/main/service-ci.yml) | Kotlin/Micronaut/Go services | `tcwlab/betterlint` (build jobs as placeholders) |
+| [`docker-image-ci.yml`](https://github.com/tcwlab/templates/blob/main/docker-image-ci.yml) | Docker image wrapper (tcwlab internal) | `tcwlab/betterlint`, `tcwlab/buildx`, `tcwlab/trivy`, `tcwlab/semantic-release` |
 
-Alle drei sind heute auf das gemeinsame Job-Skelett (Lint → Build/Test → Security → Release/Publish) ausgerichtet. Konsumenten löschen Jobs, die für ihren Pflegestand nicht relevant sind — z.B. Service-Repos, die noch keinen Container-Push haben, lassen den Build-Push-Job weg.
-
----
-
-## Was bei einem neuen Template zu tun ist
-
-1. **PR auf `claude/feat-<template-typ>-template`**: neue YAML-Datei nach Konvention `<typ>-ci.yml`.
-2. **Header-Block** mit Erklärung „Wofür?", „Wann verwenden?", „Welche Inputs muss das Konsumenten-Repo setzen?".
-3. **`# ── ANPASSEN ──`-Marker** an allen Stellen, die ein Konsument vor dem ersten Push ändern muss (Image-Name, Branches, Secrets-Refs).
-4. **`env:`-Block** mit allen Image-Versionen prominent oben — analog zum Pattern in den existierenden Templates.
-5. **Dokumentation** in dieser Datei plus in [`templates/README.md`](https://git.mon.k8b.co/tcwlab/templates/src/branch/main/README.md) erweitern.
-6. **Smoke-Test**: in einem Sandbox-Konsumenten-Repo das Template einmal komplett durchlaufen lassen, bevor es gemerged wird.
+All three follow a shared job skeleton (Lint → Build/Test → Security → Release/Publish). Consumers delete jobs that don't apply to their situation — e.g. service repos not yet pushing containers omit the build-push job.
 
 ---
 
-## Versionsstrategie
+## Adding a new template
 
-Templates werden über **Git-Tags im `templates`-Repo** versioniert (`v1.0.0`, `v1.1.0`). Konsumenten kopieren physisch — sie referenzieren das Template nicht per `uses:`. Das bedeutet:
-
-- Eine Bump im Template wirkt erst, wenn ein Konsument neu kopiert.
-- Das ist gewollt — sonst würden Toolchain-Bumps die Konsumenten-Pipelines unangekündigt brechen.
-- Doku-Pflicht: bei Major-Bump in einem Template ein Changelog-Eintrag, der erklärt, was Konsumenten beim Re-Apply anpassen müssen.
-
-semantic-release im `release`-Job des Repos erzeugt die Tags automatisch aus Conventional-Commits.
-
----
-
-## Release-Verfahren
-
-Self-hostend wie `actions`: das Repo verwendet `tcwlab/betterlint` + `tcwlab/semantic-release` für Lint und Release. Output: Forgejo-Tags + Forgejo-Releases mit Changelog. Kein Docker-Image als Output.
+1. **PR to `claude/feat-<template-type>-template`**: create a new YAML file following the naming convention `<type>-ci.yml`.
+2. **Header block** explaining "What is this for?", "When should I use it?", "What placeholders must the consumer repo set?".
+3. **`# ── ADJUST ──` markers** at every location a consumer must change before their first push (image name, branches, secret refs).
+4. **`env:` block** with all image versions at the top — follow the pattern in existing templates.
+5. **Documentation** — update this file and [`templates/README.md`](https://github.com/tcwlab/templates/blob/main/README.md).
+6. **Smoke test**: run the new template end-to-end in a sandbox consumer repo before merging.
 
 ---
 
-## Was explizit NICHT in dieses Repo gehört
+## Versioning strategy
 
-- **`workflow_call`-Patterns**. Forgejo unterstützt das nicht reibungslos genug — wir bleiben bei drop-in-Copy.
-- **Repo-spezifische Logik**. Templates sind generisch. Wenn ein Konsument was Spezielles braucht, ändert er das im eigenen Repo.
-- **Inline-Komplex-Logik**, die in eine Composite Action gehört. Wenn ein Block in mehreren Templates auftaucht, gehört er nach [`actions/`](https://git.mon.k8b.co/tcwlab/actions).
-- **Helm-/Kustomize-/Tofu-spezifische Module**. Templates beschreiben CI-Workflows, nicht IaC- oder Deployment-Inhalte.
-- **Konsumenten-spezifische Image-Names** (z.B. `harbor.k8b.io/atrium/idp`). Templates verwenden generische Platzhalter (`tcwlab/<toolname>`, `<image-name>`), die der Konsument ersetzt.
+Templates are versioned via **Git tags in the `templates` repo** (`v1.0.0`, `v1.1.0`). Consumers copy them physically — they do not reference them via `uses:`. This means:
+
+- A template change only takes effect when a consumer copies it again.
+- This is intentional — it prevents toolchain bumps from breaking consumer pipelines without a PR.
+- Documentation requirement: for major template changes, add a changelog entry explaining what consumers need to adjust when re-applying.
+
+semantic-release in the repo's `release` job generates tags automatically from Conventional Commits.
 
 ---
 
-## Konsumenten-Snippets
+## Release process
 
-### Bootstrap eines neuen IaC-Repos
+Self-hosted like `actions`: the repo uses `tcwlab/betterlint` + `tcwlab/semantic-release` for linting and releases. Output: Forgejo tags + Forgejo releases with changelog. No Docker image output.
+
+---
+
+## What explicitly does NOT belong in this repo
+
+- **`workflow_call` patterns**. Forgejo doesn't support them smoothly yet — we stick with drop-in copy.
+- **Repo-specific logic**. Templates are generic. When a consumer needs something specific, they customize it in their own repo.
+- **Inline complex logic that should be a Composite Action**. If a block appears in multiple templates, it belongs in [`actions/`](https://github.com/tcwlab/actions).
+- **Helm / Kustomize / OpenTofu specific modules**. Templates describe CI workflows, not IaC or deployment content.
+- **Consumer-specific image names** (e.g., `harbor.k8b.io/atrium/idp`). Templates use generic placeholders (`tcwlab/<toolname>`, `<image-name>`) that the consumer fills in.
+
+---
+
+## Consumer snippets
+
+### Bootstrap a new IaC repo
 
 ```bash
 mkdir -p myrepo/.forgejo/workflows
 cp <tcwlab>/templates/iac-ci.yml myrepo/.forgejo/workflows/ci.yml
 
-# Dann in ci.yml die ANPASSEN-Stellen ändern:
-#   env.OPENTOFU_VERSION     → versions.yaml-aktueller Wert
-#   env.BETTERLINT_VERSION   → versions.yaml-aktueller Wert
-#   permissions / branches   → projektspezifisch
+# Then in ci.yml adjust the ADJUST markers:
+#   env.OPENTOFU_VERSION     → current value from versions.yaml
+#   env.BETTERLINT_VERSION   → current value from versions.yaml
+#   permissions / branches   → project-specific
 ```
 
-### Bootstrap eines neuen Service-Repos
+### Bootstrap a new service repo
 
 ```bash
 cp <tcwlab>/templates/service-ci.yml myrepo/.forgejo/workflows/ci.yml
 ```
 
-Plus typischerweise ein zweites File `.forgejo/workflows/release.yml`, das den Release-Pfad (semantic-release + Build/Push) abbildet — siehe `service-ci.yml`-Header für das aktuelle Pattern.
+Typically also create a second file `.forgejo/workflows/release.yml` for the release path (semantic-release + build/push) — see the `service-ci.yml` header for the current pattern.
 
-### Bootstrap eines neuen tcwlab-Image-Repos
+### Bootstrap a new tcwlab image repo
 
 ```bash
 cp <tcwlab>/templates/docker-image-ci.yml myrepo/.forgejo/workflows/ci.yml
 ```
 
-Das Template enthält bereits den Auto-Tag-+-Publish-Pattern, den wir für `tcwlab/<image>:<version>`-Veröffentlichung verwenden.
+The template already includes the auto-tag + publish pattern we use for `tcwlab/<image>:<version>` releases.
 
 ---
 
-## Bekannte Schmerzpunkte / offene Themen
+## Known pain points / open issues
 
-- **Drift zwischen Template und tatsächlichem Konsumenten-Workflow**: nach Drop-in-Copy entwickelt sich der Konsument unabhängig weiter. Es gibt keine Drift-Detection. Idee: ein Komment-Marker im Konsumenten-Workflow, der die Template-Version zeigt — pflegerisch unattraktiv, aktuell verworfen.
-- **Versions-Drift in `env:`-Block**: jeder Konsument hat seine eigenen `BETTERLINT_VERSION`-Werte. Bei Major-Bump in `betterlint` muss man manuell durch alle Konsumenten gehen. Renovate könnte hier später helfen, wenn `versions.yaml` als Single-Source eingebunden wird.
-- **`docker-image-ci.yml` ist mit Abstand das umfangreichste Template** (~375 Zeilen). Spaltung in Sub-Templates wurde diskutiert, aber: Konsumenten wollen einen Workflow lesen, nicht drei. Wir behalten das große Template, dokumentieren aber die Job-Sektionen klarer im Header-Block.
-- **Forgejo-API-Inkompatibilitäten**: Trivy-PR-Description-Update, Semantic-Release-mit-GitHub-Plugin — beides hängt an Forgejos GitHub-Kompatibilitäts-Layer. Bei Forgejo-Major-Bumps sind Templates die wahrscheinlichsten Bruch-Stellen.
-- **`workflow_dispatch`-Support**: alle Templates haben den Trigger drin, weil manuelles Re-Run im Forgejo-UI praktisch ist. Konsumenten-Repos lassen ihn zumeist drin.
+- **Drift between template and actual consumer workflow**: after copying, the consumer's workflow evolves independently. There is no drift detection. Idea: a comment marker in the consumer workflow showing the template version — unpopular to maintain, currently rejected.
+- **Version drift in `env:` block**: each consumer has its own `BETTERLINT_VERSION` values. On major betterlint bumps, you must manually visit all consumers. Renovate could help later if we make `versions.yaml` the single source.
+- **`docker-image-ci.yml` is the largest template** (~375 lines). Splitting into sub-templates was discussed, but: consumers want to read one workflow, not three. We keep the large template and document the job sections more clearly in the header.
+- **Forgejo API incompatibilities**: Trivy PR description updates, semantic-release with GitHub plugin — both depend on Forgejo's GitHub compatibility layer. Forgejo major bumps are likely to break templates.
+- **`workflow_dispatch` support**: all templates include the trigger because manual reruns in the Forgejo UI are practical. Consumer repos typically keep it.
