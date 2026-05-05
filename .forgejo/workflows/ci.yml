@@ -26,17 +26,17 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  BETTERLINT_VERSION: "2.13.0"
-
 jobs:
 
   # ---------------------------------------------------------------------------
   lint:
     name: Lint (betterlint)
     runs-on: ubuntu-22.04
+    # NOTE: Forgejo's workflow schema validator rejects `${{ env.X }}` inside
+    # `container.image` ("Unknown Variable Access env"). Hardcode the tag here.
+    # When bumping betterlint, update this single line.
     container:
-      image: tcwlab/betterlint:${{ env.BETTERLINT_VERSION }}
+      image: tcwlab/betterlint:2.13.0
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v4
         with:
