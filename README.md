@@ -42,15 +42,18 @@ All three follow a consistent job pattern: **Lint → Build/Test → Security �
 Each template has clear `# ── ADJUST ──` markers for values you must change:
 
 **iac-ci.yml:**
+
 - `OPENTOFU_VERSION` — from `tcwlab/versions.yaml`
 - `BETTERLINT_VERSION` — from `tcwlab/versions.yaml`
 - `permissions:`, `concurrency:`, `branches:` — to match your project's branching strategy
 
 **service-ci.yml:**
+
 - `BETTERLINT_VERSION` — from `tcwlab/versions.yaml`
 - Build/test steps — uncomment and adapt the `# TODO: build-Job` section for your language (Gradle for Kotlin, `go build` for Go, etc.)
 
 **docker-image-ci.yml:**
+
 - `IMAGE: tcwlab/<toolname>` — replace `<toolname>` with your image name
 - `BETTERLINT_VERSION`, `TRIVY_VERSION` — from `tcwlab/versions.yaml`
 - Smoke-test command in the build step (currently `docker run ... --version`)
