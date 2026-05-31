@@ -36,6 +36,56 @@ All three follow a shared job skeleton (Lint → Build/Test → Security → Rel
 
 ---
 
+## Checkout strategy
+
+Two distinct checkout patterns live in this repo, **by design** — do not
+"unify" them:
+
+- **`ci.yml` family** (`service-ci.yml`, `iac-ci.yml`, `docker-image-ci.yml`,
+  plus the meta [`.forgejo/workflows/ci.yml`](https://github.com/tcwlab/templates/blob/main/.forgejo/workflows/ci.yml)
+  of this repo) — these jobs run **inside the minimal `tcwlab/*` images**
+  (`betterlint`, `buildx`, `opentofu`) which ship **without Node.js** by
+  design. Use a shell-based checkout:
+
+  ```yaml
+  - name: Checkout
+    env:
+      GITHUB_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+    run: |
+      git config --global init.defaultBranch main
+      git init .
+      git remote add origin \
+        "https://oauth2:${GITHUB_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git"
+      git fetch --depth=1 origin "${GITHUB_SHA}"
+      git checkout FETCH_HEAD
+  ```
+
+- **`release.yml`** (in consumer repos, not shipped here) — runs inside
+  `tcwlab/semantic-release`, which **has** Node.js. Use
+  `uses: https://data.forgejo.org/actions/checkout@v4`.
+
+The JS-based `actions/checkout` action requires a Node runtime in the
+container. Putting it in a `ci.yml` step that runs in `tcwlab/betterlint`
+or `tcwlab/buildx` either fails outright or accidentally works because a
+co-tool pulled Node in — both outcomes are bad supply-chain hygiene.
+
+**Why the token form** (and not a bare `git fetch`): `git.mon.k8b.co` repos
+are private, so an unauthenticated fetch 401s. The `oauth2:${GITHUB_TOKEN}@`
+prefix injects `secrets.FORGEJO_TOKEN`; `${GITHUB_SERVER_URL#https://}` keeps
+the form host-portable so consumers copy it verbatim.
+
+**Why `--depth=1`**: none of the `ci.yml` jobs are history-aware. The only
+history consumer in the lint path is betterlint's commitlint, which inspects
+`git log -1` (HEAD only) — satisfied by depth 1. `--depth=50` is reserved for
+history-aware tooling (semantic-release commit analysis), which lives in
+`release.yml`, not here.
+
+The exact form above is extracted from the five conforming image repos
+(`betterlint`, `helm`, `opentofu`, `trivy`, `semantic-release`); keep new
+templates aligned with it.
+
+---
+
 ## Adding a new template
 
 1. **PR to `claude/feat-<template-type>-template`**: create a new YAML file following the naming convention `<type>-ci.yml`.

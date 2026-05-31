@@ -37,9 +37,19 @@ jobs:
     container:
       image: tcwlab/betterlint:${{ env.BETTERLINT_VERSION }}
     steps:
-      - uses: https://data.forgejo.org/actions/checkout@v4
-        with:
-          fetch-depth: 0
+      # Shell-based checkout: tcwlab/betterlint and tcwlab/opentofu ship
+      # without Node.js, so the JS-based actions/checkout cannot run here.
+      # depth=1 is enough — betterlint's commitlint only inspects `git log -1`.
+      - name: Checkout
+        env:
+          GITHUB_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+        run: |
+          git config --global init.defaultBranch main
+          git init .
+          git remote add origin \
+            "https://oauth2:${GITHUB_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin "${GITHUB_SHA}"
+          git checkout FETCH_HEAD
 
       - name: Lint (betterlint)
         run: betterlint --dir .
@@ -51,7 +61,17 @@ jobs:
     container:
       image: tcwlab/opentofu:${{ env.OPENTOFU_VERSION }}
     steps:
-      - uses: https://data.forgejo.org/actions/checkout@v4
+      # Shell-based checkout — tcwlab/opentofu ships without Node.js.
+      - name: Checkout
+        env:
+          GITHUB_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+        run: |
+          git config --global init.defaultBranch main
+          git init .
+          git remote add origin \
+            "https://oauth2:${GITHUB_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin "${GITHUB_SHA}"
+          git checkout FETCH_HEAD
       - name: tofu fmt -check -recursive
         run: tofu fmt -check -recursive
 
@@ -62,7 +82,17 @@ jobs:
     container:
       image: tcwlab/opentofu:${{ env.OPENTOFU_VERSION }}
     steps:
-      - uses: https://data.forgejo.org/actions/checkout@v4
+      # Shell-based checkout — tcwlab/opentofu ships without Node.js.
+      - name: Checkout
+        env:
+          GITHUB_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+        run: |
+          git config --global init.defaultBranch main
+          git init .
+          git remote add origin \
+            "https://oauth2:${GITHUB_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin "${GITHUB_SHA}"
+          git checkout FETCH_HEAD
       - name: Validate all *.tf directories
         run: |
           set -euo pipefail
@@ -83,7 +113,17 @@ jobs:
     container:
       image: tcwlab/betterlint:${{ env.BETTERLINT_VERSION }}
     steps:
-      - uses: https://data.forgejo.org/actions/checkout@v4
+      # Shell-based checkout — tcwlab/betterlint ships without Node.js.
+      - name: Checkout
+        env:
+          GITHUB_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+        run: |
+          git config --global init.defaultBranch main
+          git init .
+          git remote add origin \
+            "https://oauth2:${GITHUB_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin "${GITHUB_SHA}"
+          git checkout FETCH_HEAD
       - name: tflint --recursive
         run: |
           tflint --init

@@ -73,6 +73,21 @@ Pinning ensures your pipeline doesn't break when tcwlab ships a new version. It'
 
 ---
 
+## Checkout strategy
+
+The `ci.yml` templates use a **shell-based checkout** (`git init` + `git fetch`),
+not `actions/checkout`. This is deliberate: these jobs run inside the minimal
+`tcwlab/*` images (`betterlint`, `buildx`, `opentofu`), which ship without
+Node.js — and the JS-based `actions/checkout` needs a Node runtime in the
+container. A `release.yml` (semantic-release, which has Node.js) is the only
+place where `uses: …/actions/checkout@v4` is the right call.
+
+If you copy a template and add a job that runs on the **host runner** (no
+`container:` block — e.g. a release/build-push job), you may use
+`actions/checkout@v4` there: the runner has Node.js.
+
+---
+
 ## How this repo fits into tcwlab
 
 - **Templates** (this repo) → drop-in YAML files for consumer repos
