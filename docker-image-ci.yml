@@ -77,17 +77,19 @@ jobs:
     env:
       DOCKER_HOST: tcp://docker-in-docker:2375
     steps:
-      # Checkout: actions/checkout@v4 or shell-based (no Node.js in container)
-      - uses: https://data.forgejo.org/actions/checkout@v4
-      # Alternative (in containers without Node):
-      # - name: Checkout
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
-      #   run: |
-      #     git config --global init.defaultBranch main
-      #     git init . && git remote add origin \
-      #       "https://oauth2:${GITHUB_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git"
-      #     git fetch --depth=1 origin "${GITHUB_SHA}" && git checkout FETCH_HEAD
+      # Shell-based checkout: this job is meant to run in tcwlab/buildx
+      # (see the commented container: block above), which ships without
+      # Node.js — so the JS-based actions/checkout cannot run here.
+      - name: Checkout
+        env:
+          GITHUB_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+        run: |
+          git config --global init.defaultBranch main
+          git init .
+          git remote add origin \
+            "https://oauth2:${GITHUB_TOKEN}@${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin "${GITHUB_SHA}"
+          git checkout FETCH_HEAD
 
       - name: Install Docker CLI
         run: |
