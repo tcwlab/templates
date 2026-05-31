@@ -69,10 +69,11 @@ container. Putting it in a `ci.yml` step that runs in `tcwlab/betterlint`
 or `tcwlab/buildx` either fails outright or accidentally works because a
 co-tool pulled Node in — both outcomes are bad supply-chain hygiene.
 
-**Why the token form** (and not a bare `git fetch`): `git.mon.k8b.co` repos
-are private, so an unauthenticated fetch 401s. The `oauth2:${GITHUB_TOKEN}@`
-prefix injects `secrets.FORGEJO_TOKEN`; `${GITHUB_SERVER_URL#https://}` keeps
-the form host-portable so consumers copy it verbatim.
+**Why the token form** (and not a bare `git fetch`): the private Forgejo
+repos these templates target need auth, so an unauthenticated fetch 401s. The
+`oauth2:${GITHUB_TOKEN}@` prefix injects `secrets.FORGEJO_TOKEN`;
+`${GITHUB_SERVER_URL#https://}` keeps the form host-portable so consumers copy
+it verbatim.
 
 **Why `--depth=1`**: none of the `ci.yml` jobs are history-aware. The only
 history consumer in the lint path is betterlint's commitlint, which inspects
